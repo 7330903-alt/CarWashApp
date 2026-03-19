@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мойки: Управление</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2563eb">
+    
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5cMCEUvjorxi6Nwr-783MFtnTq5dC4I4",
+            authDomain: "carwashappw.firebaseapp.com",
+            projectId: "carwashappw",
+            storageBucket: "carwashappw.firebasestorage.app",
+            messagingSenderId: "1039787275423",
+            appId: "1:1039787275423:web:6a14edf2283c4ad2b01eaa"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.currentSite = '';
+
+        window.addTask = async () => {
+            const text = document.getElementById('input-task').value;
+            if(!text) return;
+            await addDoc(collection(db, "tasks"), {
+                text: text,
+                site: window.currentSite,
+                createdAt: Date.now()
+            });
+            document.getElementById('input-task').value = '';
+            closeModal();
+        };
+
+        window.deleteTask = async (id) => {
+            await deleteDoc(doc(db, "tasks", id));
+        };
+
+        window.loadTasks = (site) => {
+            const q = query(collection(db, "tasks"), where("site", "==", site));
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('task-list');
+                list.innerHTML = '';
+                snapshot.forEach((doc) => {
+                    const task = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center mb-3';
+                    item.innerHTML = `
+                        <span class="text-lg font-medium">${task.text}</span>
+                        <button onclick="deleteTask('${doc.id}')" class="p-2 text-red-400 text-xl">✕</button>
+                    `;
+                    list.appendChild(item);
+                });
+            });
+        };
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="screen-main" class="p-6">
+        <h1 class="text-3xl font-black text-center mb-10 mt-6 tracking-tighter">АВТОМОЙКИ</h1>
+        <div class="space-y-6">
+            <button onclick="openWash('Королев')" class="w-full h-44 bg-blue-600 rounded-[2.5rem] shadow-xl text-white active:scale-95 transition-all flex flex-col items-center justify-center">
+                <span class="text-4xl font-bold">КОРОЛЕВ</span>
+            </button>
+            <button onclick="openWash('Медведково')" class="w-full h-44 bg-indigo-700 rounded-[2.5rem] shadow-xl text-white active:scale-95 transition-all flex flex-col items-center justify-center">
+                <span class="text-4xl font-bold">МЕДВЕДКОВО</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="screen-tasks" class="hidden min-h-screen flex flex-col">
+        <div class="p-4 bg-white border-b flex items-center justify-between sticky top-0">
+            <button onclick="location.reload()" class="text-blue-600 font-bold text-lg">← Назад</button>
+            <h2 id="title-wash" class="font-black text-xl uppercase"></h2>
+            <div class="w-8"></div>
+        </div>
+        <div id="task-list" class="p-4 flex-grow"></div>
+        <div class="p-6">
+            <button onclick="openModal()" class="w-full py-5 bg-black text-white rounded-2xl font-bold text-xl shadow-2xl">+ ЗАДАЧА</button>
+        </div>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6 z-50">
+        <div class="bg-white w-full rounded-[2rem] p-8 shadow-2xl">
+            <input id="input-task" type="text" class="w-full p-5 bg-gray-100 rounded-2xl mb-6 text-lg outline-none focus:ring-2 ring-blue-500" placeholder="Что сделать?">
+            <div class="flex gap-4">
+                <button onclick="closeModal()" class="flex-1 py-4 font-bold text-gray-400">ОТМЕНА</button>
+                <button onclick="addTask()" class="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold">ОК</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openWash(site) {
+            window.currentSite = site;
+            document.getElementById('screen-main').classList.add('hidden');
+            document.getElementById('screen-tasks').classList.remove('hidden');
+            document.getElementById('title-wash').innerText = site;
+            window.loadTasks(site);
+        }
+        function openModal() { document.getElementById('modal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+    </script>
+</body>
+</html>

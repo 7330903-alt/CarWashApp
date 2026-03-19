@@ -24,38 +24,48 @@
         window.currentSite = '';
         window.currentInfoSite = '';
 
-        // --- ЛОГИКА ТЕКСТА И КНОПОК ---
+        // --- УМНАЯ ЛОГИКА ИКОНОК И КНОПОК ---
         function formatContent(text) {
             if (!text) return '<span class="text-gray-400 italic font-normal">Нет данных</span>';
             const mdUrlRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
             
             return text.replace(mdUrlRegex, (match, title, url) => {
                 let finalUrl = url;
+                let icon = '🔗'; 
+                const lowerTitle = title.toLowerCase();
+
+                // ПОДБОР ИКОНКИ ПО СМЫСЛУ
+                if (lowerTitle.includes('камер') || lowerTitle.includes('видео')) icon = '📹';
+                else if (lowerTitle.includes('свет') || lowerTitle.includes('ламп') || lowerTitle.includes('прожектор')) icon = '💡';
+                else if (lowerTitle.includes('схем') || lowerTitle.includes('чертеж') || lowerTitle.includes('план')) icon = '📐';
+                else if (lowerTitle.includes('насос') || lowerTitle.includes('помп')) icon = '⚙️';
+                else if (lowerTitle.includes('чек') || lowerTitle.includes('оплат') || lowerTitle.includes('касс')) icon = '🧾';
+                else if (lowerTitle.includes('щит') || lowerTitle.includes('электр') || lowerTitle.includes('фаз')) icon = '⚡';
+                else if (lowerTitle.includes('инструкц') || lowerTitle.includes('документ')) icon = '📄';
+                else if (url.match(/\.(jpeg|jpg|gif|png|webp)/i) || url.includes('drive.google.com')) icon = '🖼️';
+
+                // Google Drive Direct Link
                 if (url.includes('drive.google.com')) {
                     const driveIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
                     if (driveIdMatch) finalUrl = `https://drive.google.com/uc?export=view&id=${driveIdMatch[1]}`;
                 }
 
-                if (url.match(/\.(jpeg|jpg|gif|png|webp)/i) || url.includes('drive.google.com')) {
+                const isMedia = url.match(/\.(jpeg|jpg|gif|png|webp|pdf)/i) || url.includes('drive.google.com');
+                
+                if (isMedia) {
+                    const btnColor = url.includes('.pdf') ? 'bg-red-600' : 'bg-blue-600';
                     return `
-                    <a href="${finalUrl}" target="_blank" class="block my-3 p-4 bg-blue-600 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md">
-                        <span class="text-white font-black uppercase text-xs tracking-widest">${title}</span>
-                        <span class="text-blue-200">🖼️</span>
+                    <a href="${finalUrl}" target="_blank" class="block my-3 p-4 ${btnColor} rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md">
+                        <span class="text-white font-black uppercase text-[10px] tracking-widest">${title}</span>
+                        <span class="text-white text-lg">${icon}</span>
                     </a>`;
                 }
-
-                if (url.match(/\.pdf/i)) {
-                    return `
-                    <a href="${finalUrl}" target="_blank" class="block my-3 p-4 bg-red-600 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md">
-                        <span class="text-white font-black uppercase text-xs tracking-widest">${title}</span>
-                        <span class="text-red-200">📄</span>
-                    </a>`;
-                }
-                return `<a href="${url}" target="_blank" class="text-blue-600 font-bold underline block my-2 italic">🔗 ${title}</a>`;
+                
+                return `<a href="${url}" target="_blank" class="text-blue-600 font-bold underline block my-2 italic text-sm">${icon} ${title}</a>`;
             });
         }
 
-        // --- FIREBASE ФУНКЦИИ ---
+        // --- FIREBASE FUNCTIONS ---
         window.openInfoSite = (site) => {
             window.currentInfoSite = site;
             document.getElementById('info-site-title').innerText = "ИНФО: " + site;
@@ -94,8 +104,11 @@
                     item.className = 'bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 mb-4 active:scale-95 transition-all flex justify-between items-center';
                     item.onclick = () => window.showDetails(docSnap.id, task.text, task.description);
                     item.innerHTML = `
-                        <div class="text-left"><span class="text-lg font-black text-slate-800 block">${task.text}</span><span class="text-[9px] text-blue-500 font-bold uppercase tracking-widest italic">Открыть →</span></div>
-                        <button onclick="event.stopPropagation(); window.deleteTask('${docSnap.id}')" class="text-slate-200 text-3xl px-2">✕</button>
+                        <div class="text-left leading-tight">
+                            <span class="text-lg font-black text-slate-800 block mb-1">${task.text}</span>
+                            <span class="text-[9px] text-blue-500 font-bold uppercase tracking-widest italic opacity-70">Детали →</span>
+                        </div>
+                        <button onclick="event.stopPropagation(); window.deleteTask('${docSnap.id}')" class="text-slate-200 text-3xl px-2 hover:text-red-400 transition-colors">✕</button>
                     `;
                     list.appendChild(item);
                 });
@@ -116,7 +129,7 @@
             window.closeModal('modal-detail');
         };
 
-        window.deleteTask = async (id) => { if(confirm("Удалить?")) await deleteDoc(doc(db, "tasks", id)); };
+        window.deleteTask = async (id) => { if(confirm("Удалить задачу?")) await deleteDoc(doc(db, "tasks", id)); };
         window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
         window.closeModal = (id) => {
             document.getElementById(id).classList.add('hidden');
@@ -134,7 +147,7 @@
         <h1 class="text-4xl font-black text-center mb-10 mt-12 tracking-tighter uppercase italic text-slate-800">МОЙКИ: ЗАДАЧИ</h1>
         <div class="grid gap-6">
             <button onclick="openWash('Королев')" class="h-44 bg-blue-600 rounded-[3rem] shadow-2xl shadow-blue-100 text-white text-3xl font-black active:scale-95 transition-all">КОРОЛЕВ</button>
-            <button onclick="openWash('Медведково')" class="h-44 bg-blue-800 rounded-[3rem] shadow-2xl shadow-blue-200 text-white text-3xl font-black active:scale-95 transition-all">МЕДВЕДКОВО</button>
+            <button onclick="openWash('Медведково')" class="h-44 bg-blue-900 rounded-[3rem] shadow-2xl shadow-blue-200 text-white text-3xl font-black active:scale-95 transition-all">МЕДВЕДКОВО</button>
             <button onclick="window.openModal('modal-info-select')" class="py-6 bg-white border-2 border-slate-200 rounded-[2.5rem] text-slate-400 font-black text-xl active:bg-slate-50 flex items-center justify-center gap-3 tracking-widest shadow-sm uppercase italic">ИНФОРМАЦИЯ</button>
         </div>
     </div>
@@ -145,8 +158,8 @@
             <h2 id="title-wash" class="font-black text-xl uppercase tracking-widest text-slate-800"></h2>
             <div class="w-12"></div>
         </div>
-        <div id="task-list" class="p-6 flex-grow overflow-y-auto pb-36 text-center"></div>
-        <div class="fixed bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-50 z-30">
+        <div id="task-list" class="p-6 flex-grow overflow-y-auto pb-36"></div>
+        <div class="fixed bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-50 z-30 text-center">
             <button onclick="window.openModal('modal-add')" class="w-full py-6 bg-blue-600 text-white rounded-[2.5rem] font-black text-xl shadow-xl shadow-blue-200 uppercase tracking-widest active:scale-95 transition-all">+ ЗАДАЧА</button>
         </div>
     </div>
@@ -156,8 +169,8 @@
             <div id="info-selection">
                 <h3 class="text-2xl font-black mb-8 text-slate-800 uppercase tracking-tighter">ОБЪЕКТ</h3>
                 <div class="grid gap-4">
-                    <button onclick="window.openInfoSite('Королев')" class="py-6 bg-blue-50 text-blue-600 rounded-[2rem] font-black text-xl uppercase tracking-tight">Королев</button>
-                    <button onclick="window.openInfoSite('Медведково')" class="py-6 bg-blue-900 text-white rounded-[2rem] font-black text-xl uppercase tracking-tight">Медведково</button>
+                    <button onclick="window.openInfoSite('Королев')" class="py-6 bg-blue-50 text-blue-600 rounded-[2rem] font-black text-xl uppercase">Королев</button>
+                    <button onclick="window.openInfoSite('Медведково')" class="py-6 bg-blue-900 text-white rounded-[2rem] font-black text-xl uppercase">Медведково</button>
                     <button onclick="window.closeModal('modal-info-select')" class="py-4 text-slate-300 font-black mt-4 uppercase tracking-[0.3em] text-[9px]">Закрыть</button>
                 </div>
             </div>
@@ -174,7 +187,7 @@
                     <textarea id="edit-info-input" class="w-full h-80 p-6 bg-slate-50 border rounded-[2.5rem] mb-6 outline-none text-sm font-medium" placeholder="[Название](ссылка)"></textarea>
                     <div class="flex gap-4">
                         <button onclick="window.toggleInfoEdit(false)" class="flex-1 py-4 font-black text-slate-300 uppercase text-[9px]">Отмена</button>
-                        <button onclick="window.saveGeneralInfo()" class="flex-1 py-4 bg-green-500 text-white rounded-2xl font-black uppercase text-[9px] shadow-lg shadow-green-100">Сохранить</button>
+                        <button onclick="window.saveGeneralInfo()" class="flex-1 py-4 bg-green-500 text-white rounded-2xl font-black uppercase text-[9px]">Сохранить</button>
                     </div>
                 </div>
             </div>
@@ -185,10 +198,10 @@
         <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 shadow-2xl">
             <h3 class="text-2xl font-black mb-8 text-center uppercase tracking-tighter text-slate-800 italic">Новая задача</h3>
             <input id="input-task" type="text" class="w-full p-6 bg-slate-50 rounded-2xl mb-4 outline-none font-bold" placeholder="Что сделать?">
-            <textarea id="input-desc" class="w-full p-6 bg-slate-50 rounded-2xl mb-8 h-44 outline-none text-sm font-medium" placeholder="Описание и ссылки... [Название](ссылка)"></textarea>
-            <div class="flex gap-4">
+            <textarea id="input-desc" class="w-full p-6 bg-slate-50 rounded-2xl mb-8 h-44 outline-none text-sm font-medium" placeholder="Детали... [Кнопка](ссылка)"></textarea>
+            <div class="flex gap-4 text-center">
                 <button onclick="window.closeModal('modal-add')" class="flex-1 py-4 font-black text-slate-300 uppercase text-[9px]">Отмена</button>
-                <button onclick="window.addTask()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[9px] shadow-xl shadow-blue-100">Создать</button>
+                <button onclick="window.addTask()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[9px] shadow-xl">Создать</button>
             </div>
         </div>
     </div>
@@ -196,11 +209,11 @@
     <div id="modal-detail" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-6 z-50">
         <div class="bg-white w-full max-w-sm rounded-[4rem] p-10 shadow-2xl text-center">
             <div id="detail-view">
-                <h3 id="detail-title-text" class="text-3xl font-black mb-6 text-slate-900 tracking-tighter leading-tight"></h3>
+                <h3 id="detail-title-text" class="text-3xl font-black mb-6 text-slate-900 tracking-tighter"></h3>
                 <div id="detail-desc-text" class="text-slate-600 text-base leading-relaxed mb-10 text-left border-t border-slate-100 pt-8 max-h-[50vh] overflow-y-auto scrollbar-hide"></div>
                 <div class="flex gap-4">
                     <button onclick="window.closeModal('modal-detail')" class="flex-1 py-5 bg-slate-100 rounded-2xl font-black uppercase text-[9px] text-slate-400">Закрыть</button>
-                    <button onclick="document.getElementById('detail-view').classList.add('hidden'); document.getElementById('detail-edit').classList.remove('hidden');" class="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[9px] shadow-xl shadow-blue-100">Править</button>
+                    <button onclick="document.getElementById('detail-view').classList.add('hidden'); document.getElementById('detail-edit').classList.remove('hidden');" class="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[9px] shadow-xl">Править</button>
                 </div>
             </div>
             <div id="detail-edit" class="hidden">
