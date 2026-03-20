@@ -24,45 +24,55 @@
         window.currentSite = '';
         window.currentInfoSite = '';
 
-        // --- УМНАЯ ЛОГИКА ИКОНОК И КНОПОК ---
+        // --- ЛОГИКА ФОРМАТИРОВАНИЯ (ССЫЛКИ И ТЕЛЕФОНЫ) ---
         function formatContent(text) {
             if (!text) return '<span class="text-gray-400 italic font-normal">Нет данных</span>';
-            const mdUrlRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
             
-            return text.replace(mdUrlRegex, (match, title, url) => {
+            let formatted = text;
+
+            // 1. Сначала обрабатываем ссылки в скобках [Название](ссылка)
+            const mdUrlRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+            formatted = formatted.replace(mdUrlRegex, (match, title, url) => {
                 let finalUrl = url;
                 let icon = '🔗'; 
                 const lowerTitle = title.toLowerCase();
 
-                // ПОДБОР ИКОНКИ ПО СМЫСЛУ
                 if (lowerTitle.includes('камер') || lowerTitle.includes('видео')) icon = '📹';
                 else if (lowerTitle.includes('свет') || lowerTitle.includes('ламп') || lowerTitle.includes('прожектор')) icon = '💡';
                 else if (lowerTitle.includes('схем') || lowerTitle.includes('чертеж') || lowerTitle.includes('план')) icon = '📐';
                 else if (lowerTitle.includes('насос') || lowerTitle.includes('помп')) icon = '⚙️';
                 else if (lowerTitle.includes('чек') || lowerTitle.includes('оплат') || lowerTitle.includes('касс')) icon = '🧾';
                 else if (lowerTitle.includes('щит') || lowerTitle.includes('электр') || lowerTitle.includes('фаз')) icon = '⚡';
-                else if (lowerTitle.includes('инструкц') || lowerTitle.includes('документ')) icon = '📄';
+                else if (lowerTitle.includes('инструкц') || lowerTitle.includes('документ') || lowerTitle.includes('реквизит')) icon = '📄';
+                else if (lowerTitle.includes('тел') || lowerTitle.includes('звон')) icon = '📞';
                 else if (url.match(/\.(jpeg|jpg|gif|png|webp)/i) || url.includes('drive.google.com')) icon = '🖼️';
 
-                // Google Drive Direct Link
                 if (url.includes('drive.google.com')) {
                     const driveIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
                     if (driveIdMatch) finalUrl = `https://drive.google.com/uc?export=view&id=${driveIdMatch[1]}`;
                 }
 
-                const isMedia = url.match(/\.(jpeg|jpg|gif|png|webp|pdf)/i) || url.includes('drive.google.com');
-                
-                if (isMedia) {
-                    const btnColor = url.includes('.pdf') ? 'bg-red-600' : 'bg-blue-600';
-                    return `
-                    <a href="${finalUrl}" target="_blank" class="block my-3 p-4 ${btnColor} rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md">
-                        <span class="text-white font-black uppercase text-[10px] tracking-widest">${title}</span>
-                        <span class="text-white text-lg">${icon}</span>
-                    </a>`;
-                }
-                
-                return `<a href="${url}" target="_blank" class="text-blue-600 font-bold underline block my-2 italic text-sm">${icon} ${title}</a>`;
+                const btnColor = url.includes('.pdf') ? 'bg-red-600' : 'bg-blue-600';
+                return `
+                <a href="${finalUrl}" target="_blank" class="block my-3 p-4 ${btnColor} rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md">
+                    <span class="text-white font-black uppercase text-[10px] tracking-widest leading-none">${title}</span>
+                    <span class="text-white text-lg">${icon}</span>
+                </a>`;
             });
+
+            // 2. Затем находим номера телефонов (форматы +7..., 8..., или просто 10-11 цифр)
+            // Игнорируем те цифры, которые уже внутри ссылок
+            const phoneRegex = /(\+7|8)[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g;
+            formatted = formatted.replace(phoneRegex, (phone) => {
+                const cleanPhone = phone.replace(/\D/g, ''); // Очистка от скобок и тире для ссылки
+                return `
+                <a href="tel:${cleanPhone}" class="block my-3 p-4 bg-green-600 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md">
+                    <span class="text-white font-black uppercase text-[10px] tracking-widest leading-none">${phone}</span>
+                    <span class="text-white text-lg">📞</span>
+                </a>`;
+            });
+
+            return formatted;
         }
 
         // --- FIREBASE FUNCTIONS ---
@@ -106,9 +116,9 @@
                     item.innerHTML = `
                         <div class="text-left leading-tight">
                             <span class="text-lg font-black text-slate-800 block mb-1">${task.text}</span>
-                            <span class="text-[9px] text-blue-500 font-bold uppercase tracking-widest italic opacity-70">Детали →</span>
+                            <span class="text-[9px] text-blue-500 font-bold uppercase tracking-widest italic opacity-70">Открыть детали →</span>
                         </div>
-                        <button onclick="event.stopPropagation(); window.deleteTask('${docSnap.id}')" class="text-slate-200 text-3xl px-2 hover:text-red-400 transition-colors">✕</button>
+                        <button onclick="event.stopPropagation(); window.deleteTask('${docSnap.id}')" class="text-slate-200 text-3xl px-2">✕</button>
                     `;
                     list.appendChild(item);
                 });
@@ -167,7 +177,7 @@
     <div id="modal-info-select" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 z-50">
         <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 shadow-2xl text-center">
             <div id="info-selection">
-                <h3 class="text-2xl font-black mb-8 text-slate-800 uppercase tracking-tighter">ОБЪЕКТ</h3>
+                <h3 class="text-2xl font-black mb-8 text-slate-800 uppercase tracking-tighter text-slate-800">ОБЪЕКТ</h3>
                 <div class="grid gap-4">
                     <button onclick="window.openInfoSite('Королев')" class="py-6 bg-blue-50 text-blue-600 rounded-[2rem] font-black text-xl uppercase">Королев</button>
                     <button onclick="window.openInfoSite('Медведково')" class="py-6 bg-blue-900 text-white rounded-[2rem] font-black text-xl uppercase">Медведково</button>
@@ -184,7 +194,7 @@
                     </div>
                 </div>
                 <div id="info-edit-mode" class="hidden">
-                    <textarea id="edit-info-input" class="w-full h-80 p-6 bg-slate-50 border rounded-[2.5rem] mb-6 outline-none text-sm font-medium" placeholder="[Название](ссылка)"></textarea>
+                    <textarea id="edit-info-input" class="w-full h-80 p-6 bg-slate-50 border rounded-[2.5rem] mb-6 outline-none text-sm font-medium" placeholder="Пример: 89001234455"></textarea>
                     <div class="flex gap-4">
                         <button onclick="window.toggleInfoEdit(false)" class="flex-1 py-4 font-black text-slate-300 uppercase text-[9px]">Отмена</button>
                         <button onclick="window.saveGeneralInfo()" class="flex-1 py-4 bg-green-500 text-white rounded-2xl font-black uppercase text-[9px]">Сохранить</button>
@@ -197,11 +207,11 @@
     <div id="modal-add" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 z-50">
         <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 shadow-2xl">
             <h3 class="text-2xl font-black mb-8 text-center uppercase tracking-tighter text-slate-800 italic">Новая задача</h3>
-            <input id="input-task" type="text" class="w-full p-6 bg-slate-50 rounded-2xl mb-4 outline-none font-bold" placeholder="Что сделать?">
-            <textarea id="input-desc" class="w-full p-6 bg-slate-50 rounded-2xl mb-8 h-44 outline-none text-sm font-medium" placeholder="Детали... [Кнопка](ссылка)"></textarea>
+            <input id="input-task" type="text" class="w-full p-6 bg-slate-50 rounded-2xl mb-4 outline-none font-bold" placeholder="Суть задачи">
+            <textarea id="input-desc" class="w-full p-6 bg-slate-50 rounded-2xl mb-8 h-44 outline-none text-sm font-medium" placeholder="Номер или [Кнопка](ссылка)"></textarea>
             <div class="flex gap-4 text-center">
                 <button onclick="window.closeModal('modal-add')" class="flex-1 py-4 font-black text-slate-300 uppercase text-[9px]">Отмена</button>
-                <button onclick="window.addTask()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[9px] shadow-xl">Создать</button>
+                <button onclick="window.addTask()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[9px] shadow-xl shadow-blue-100">Создать</button>
             </div>
         </div>
     </div>
